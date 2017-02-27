@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using vJoyInterfaceWrap;
 
@@ -12,6 +13,8 @@ namespace WheelPlay
         public struct AxisStruct
         {
             public uint X { get; set; }
+               
+
             public uint Y { get; set; }
             public uint Z { get; set; }
             public uint Rx { get; set; }
@@ -37,11 +40,27 @@ namespace WheelPlay
         public AxisStruct Axis = new AxisStruct();
         public ButtonsStruct Buttons = new ButtonsStruct();
 
-        public void GetData(string[] data)
+        public void GetData(string data)
         {
-            // DATA
+            string[] values = data.Split(';');
+
+            for (int i = 0; i < values.Length; i++)
+            {
+                 string newString = string.Join("", values[i].ToCharArray().Where(Char.IsDigit));
+                values[i] = newString;
+            }
+            
+            if(values.Length == 4)
+            {
+                this.Axis.X = uint.Parse(values[0]) * 32;
+                this.Axis.Rx = uint.Parse(values[1]) * 32;
+                this.Axis.Ry = uint.Parse(values[2]) * 32;
+                this.Axis.Rz = uint.Parse(values[3]) * 32;
+            }
+            
 
         }
+
     }
 
 
@@ -58,11 +77,11 @@ namespace WheelPlay
         static void Main(string[] args)
         {
             Data = new SerialData();
-            serialPort = new System.IO.Ports.SerialPort("COM1", 9600);
+            serialPort = new System.IO.Ports.SerialPort("COM4", 9600);
             joystick = new vJoy();
             jState = new vJoy.JoystickState();
 
-            Console.WriteLine("WheelPlay alpha 0.1");
+            Console.WriteLine("WheelPlay alpha 0.2");
             Console.WriteLine("Coded by imn1oy");
             Console.WriteLine("===================\n");
 
@@ -72,20 +91,16 @@ namespace WheelPlay
 
             joystick.ResetVJD((uint)id);
             serialPort.Open();
-            Console.Clear();
-            Console.WriteLine("Press 'X' to end session.");
+
+            
 
             while (true)
             {
+
+                Console.Clear();
+                Console.Write("X: {0}\nRx: {1}\nRy: {2}\nRz: {3}", Data.Axis.X, Data.Axis.Rx, Data.Axis.Ry, Data.Axis.Rz);
                 GetDataFromSerial();
                 SetJoystickData();
-                if (Console.ReadKey() == new ConsoleKeyInfo('x', ConsoleKey.X, false, false, false))
-                {
-                    serialPort.Close();
-                    joystick.ResetVJD((uint)id);
-                    joystick.ResetButtons((uint)id);
-                    Environment.Exit(0);
-                }
             }
 
 
@@ -93,36 +108,42 @@ namespace WheelPlay
 
         private static void SetJoystickData()
         {
+           
             bool res;
 
             res = joystick.SetAxis((int)Data.Axis.X, (uint)id, HID_USAGES.HID_USAGE_X);
-            res = joystick.SetAxis((int)Data.Axis.Y, (uint)id, HID_USAGES.HID_USAGE_Y);
-            res = joystick.SetAxis((int)Data.Axis.Z, (uint)id, HID_USAGES.HID_USAGE_Z);
+            //res = joystick.SetAxis((int)Data.Axis.Y, (uint)id, HID_USAGES.HID_USAGE_Y);
+            //res = joystick.SetAxis((int)Data.Axis.Z, (uint)id, HID_USAGES.HID_USAGE_Z);
             res = joystick.SetAxis((int)Data.Axis.Rx, (uint)id, HID_USAGES.HID_USAGE_RX);
             res = joystick.SetAxis((int)Data.Axis.Ry, (uint)id, HID_USAGES.HID_USAGE_RY);
             res = joystick.SetAxis((int)Data.Axis.Rz, (uint)id, HID_USAGES.HID_USAGE_RZ);
 
-            res = joystick.SetBtn(Data.Buttons.B1, (uint)id, 1);
-            // and other buttons...
+            //res = joystick.SetBtn(Data.Buttons.B1, (uint)id, 1);
+            //// and other buttons...
 
         }
 
         private static void GetDataFromSerial()
         {
             string serialString;
-            string[] serialData;
 
             if (serialPort.IsOpen)
+
+            {
                 serialString = serialPort.ReadLine();
+                if (serialString.Length != 0)
+                    serialString = serialString.Replace("\r", "");
+            }
+
             else
             {
                 Console.WriteLine("Error! Serial port is not open. Trying to open...");
+                serialPort.Close();
                 serialPort.Open();
                 return;
             }
 
-            serialData = serialString.Split(';');
-            Data.GetData(serialData);
+            Data.GetData(serialString);
 
         }
 
